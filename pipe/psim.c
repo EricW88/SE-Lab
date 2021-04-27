@@ -478,7 +478,7 @@ static byte_t sim_step_pipe(word_t ccount)
     /****************** Stage implementations ******************
      * TODO: implement the following functions to simulate the
      * executations in each stage.
-     * You should also implement stalling, forwarding and bd_regvalanch
+     * You should also implement stalling, forwarding and branch
      * prediction to handle data hazards and control hazards.
      *
      * Since C code is executed sequencially, you need to do
@@ -519,14 +519,13 @@ static byte_t sim_step_pipe(word_t ccount)
 void do_fetch_stage()
 {
     // PC selection
-    if(memory_output->icode == I_JMP && !memory_output->takebranch){
+    if(memory_output->icode == I_JMP && !e_bcond){
         f_pc = memory_output->vala;
     } else if(writeback_output->icode == I_RET){
         f_pc = writeback_output->valm;
     } else {
         f_pc = fetch_output->predPC;
     }
-    decode_input->status = fetch_output->status;
 
     byte_t instr;
     byte_t tempB;
@@ -545,7 +544,6 @@ void do_fetch_stage()
             break;
         case HPACK(I_HALT, F_NONE):
             f_pc += 1;
-            decode_input->status = STAT_HLT;
             break;
         case HPACK(I_RRMOVQ, F_NONE):
         case HPACK(I_RRMOVQ, C_LE):
@@ -631,16 +629,23 @@ void do_fetch_stage()
 
         default:
             instr_valid = false;
-            decode_input->status = STAT_INS;
             printf("Invalid instruction\n");
             break;
     }
 
     decode_input->valp = f_pc;
-    fetch_input->predPC = jmp_or_call ? decode_input->valc : f_pc;
-    fetch_input->status = decode_input->status;
     decode_input->stage_pc = fetch_input->predPC;
-
+    fetch_input->predPC = jmp_or_call ? decode_input->valc : f_pc;
+    if(imem_error){
+        fetch_input->status = STAT_ADR;
+    } else if(!instr_valid){
+        fetch_input->status = STAT_INS;
+    } else if(decode_input->icode == I_HALT){
+        fetch_input->status = STAT_HLT;
+    } else {
+        fetch_input->status = STAT_AOK;
+    }
+    decode_input->status = fetch_input->status;
     /* logging function, do not change this */
     if (!imem_error) {
         sim_log("\tFetch: f_pc = 0x%llx, f_instr = %s\n",
@@ -810,8 +815,6 @@ void do_execute_stage()
             break;
 
         case I_JMP:
-            alua = execute_output->valc;
-            alub = 0;
             break;
 
         case I_CALL:
@@ -843,16 +846,17 @@ void do_execute_stage()
     bool setcc = execute_output->icode == I_ALU && execute_input->status != STAT_ADR && execute_input->status != STAT_INS && 
                  execute_input->status != STAT_HLT && writeback_output->status != STAT_ADR && 
                  writeback_output->status != STAT_INS && writeback_output->status != STAT_HLT;
-    if(setcc) cc_in = compute_cc(alufun, execute_output->vala, execute_output->valb);
+    if(setcc) cc_in = compute_cc(alufun, alua, alub);
+    memory_input->ifun = alufun;
 
-    e_bcond = cond_holds(cc_in, execute_output->ifun);
+    e_bcond = cond_holds(cc_in, alufun);
     memory_input->takebranch = e_bcond;
 
     if((execute_output->icode == I_IRMOVQ || execute_output->icode == I_ALU) || (execute_output->icode == I_RRMOVQ && e_bcond))
     {
         memory_input->deste = execute_output->deste;
     }
-    else if(execute_output->icode == I_CALL || execute_output->icode == I_RET || (execute_output->icode == I_JMP && e_bcond))
+    else if(execute_output->icode == I_CALL || execute_output->icode == I_RET)
     {
         memory_input->deste = REG_RSP;
     }
@@ -863,7 +867,7 @@ void do_execute_stage()
 
     /* logging functions, do not change these */
     if (execute_output->icode == I_JMP) {
-        sim_log("\tExecute: instr = %s, cc = %s, bd_regvalanch %staken\n",
+        sim_log("\tExecute: instr = %s, cc = %s, branch %staken\n",
             iname(HPACK(execute_output->icode, execute_output->ifun)),
             cc_name(cc),
             memory_input->takebranch ? "" : "not ");
@@ -967,7 +971,7 @@ void do_writeback_stage()
     if (writeback_output->destm != REG_NONE && !dmem_error && !imem_error && instr_valid)
         set_reg_val(reg, writeback_output->destm, writeback_output->valm);
 
-    status = writeback_output == STAT_BUB ? STAT_AOK: writeback_output->status;
+    status = writeback_output->status == STAT_BUB ? STAT_AOK: writeback_output->status;
     if (wb_destE != REG_NONE &&  writeback_output -> status == STAT_AOK) {
 	    sim_log("\tWriteback: Wrote 0x%llx to register %s\n",
 		    wb_valE, reg_name(wb_destE));
@@ -1009,7 +1013,7 @@ void do_stall_check()
     bool is_ret = decode_output->icode == I_RET || memory_output->icode == I_RET || execute_output->icode == I_RET;
     bool is_load_use = (execute_output->icode == I_MRMOVQ || execute_output->icode == I_POPQ) &&
                        (execute_output->destm == execute_input->srca || execute_output->destm == execute_input->srcb);
-    bool is_mispredicted = execute_output->icode == I_JMP && !memory_input->takebranch;
+    bool is_mispredicted = execute_output->icode == I_JMP && !e_bcond;
     if(is_load_use){
         // stall, stall, bubble
         fetch_state->op     = pipe_cntl("PC", true, false);

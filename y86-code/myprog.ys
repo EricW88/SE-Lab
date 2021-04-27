@@ -1,12 +1,11 @@
-# Design your own testcase here
 	      irmovq stack, %rsp
 	      irmovq $1, %rsi
 	      irmovq $2, %rdi
 	      irmovq $4, %rbp
-	      irmovq $32, %rax
+	      irmovq $64, %rax
 	      irmovq $32, %rdx
 	      subq %rdx,%rax
-	      jmp target
+	      jle target
 	      addq %rsi,%rax
 	      addq %rdi,%rax
 	      addq %rbp,%rax

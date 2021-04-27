@@ -125,7 +125,17 @@ void free_cache(cache_t *cache)
  */
 cache_line_t *get_line(cache_t *cache, uword_t addr)
 {
-    /* your implementation */
+    uword_t block_addr = addr / (unsigned int) pow(2, cache->b);
+    cache_set_t *block_set = &cache->sets[block_addr % (unsigned int) pow(2, cache->s)];
+    uword_t block_tag = block_addr / (unsigned int) pow(2, cache->s);
+    cache_line_t *curr_line;
+
+    for(int i = 0; i < cache->E; i++){
+        curr_line = &block_set->lines[i];
+        if(curr_line->valid && block_tag == curr_line->tag){
+            return curr_line;
+        }
+    }
     return NULL;
 }
 
@@ -136,6 +146,25 @@ cache_line_t *get_line(cache_t *cache, uword_t addr)
 cache_line_t *select_line(cache_t *cache, uword_t addr)
 {
     /* your implementation */
+    uword_t block_addr = addr / (unsigned int) pow(2, cache->b);
+    cache_set_t *block_set = &cache->sets[block_addr % (unsigned int) pow(2, cache->s)];
+    cache_line_t *curr_line = &block_set->lines[0];
+    unsigned int index = 0;
+
+    uword_t lru_max = 0;
+    cache_line_t *lru_line;
+
+    while(index < cache->E && curr_line->valid){
+        if(curr_line->lru >= lru_max) lru_line = curr_line;
+        index++;
+        curr_line++; 
+    }
+
+    if(index == cache->E){
+        return lru_line;
+    } else {
+        return curr_line;
+    }
     return NULL;
 }
 
@@ -146,7 +175,28 @@ cache_line_t *select_line(cache_t *cache, uword_t addr)
 bool check_hit(cache_t *cache, uword_t addr, operation_t operation)
 {
     /* your implementation */
-    return false;
+    cache_line_t *line = get_line(cache, addr);
+
+    int index = 0;
+    uword_t block_addr = addr / (unsigned int) pow(2, cache->b);
+    cache_set_t *block_set = &cache->sets[block_addr % (unsigned int) pow(2, cache->s)];
+    cache_line_t *curr_line = &block_set->lines[0];
+    while(index < cache->E && curr_line->valid){
+        curr_line->lru++;
+        index++;
+        curr_line++; 
+    }
+
+    if(line == NULL){
+        miss_count++;
+        return false;
+    } else {
+        hit_count++;
+        if(operation == WRITE) line->dirty = true;
+        // line is now the most recently used line
+        line->lru = 0;
+        return true;
+    }
 }
 
 /* TODO:
@@ -158,7 +208,25 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
     size_t B = (size_t)pow(2, cache->b);
     evicted_line_t *evicted_line = malloc(sizeof(evicted_line_t));
     evicted_line->data = (byte_t *) calloc(B, sizeof(byte_t));
-    /* your implementation */
+    cache_line_t *inserted_line = select_line(cache, addr);
+    evicted_line->valid = inserted_line->valid;
+    evicted_line->dirty = inserted_line->dirty;
+    evicted_line->addr = addr;
+    evicted_line->data = inserted_line->data;
+
+    if(inserted_line->valid){
+        if(inserted_line->dirty) {
+            dirty_eviction_count++;
+        } else {
+            clean_eviction_count++;
+        }
+    } else {
+        inserted_line->valid = true;
+    }
+    inserted_line->tag = addr / (unsigned int) pow(2, cache->s + cache->b);
+    if(operation == WRITE) inserted_line->dirty = false;
+    inserted_line->lru = 0;
+    inserted_line->data = incoming_data;
     return evicted_line;
 }
 
