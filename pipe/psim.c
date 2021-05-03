@@ -519,7 +519,7 @@ static byte_t sim_step_pipe(word_t ccount)
 void do_fetch_stage()
 {
     // PC selection
-    if(memory_output->icode == I_JMP && !e_bcond){
+    if(memory_output->icode == I_JMP && !memory_output->takebranch){
         f_pc = memory_output->vala;
     } else if(writeback_output->icode == I_RET){
         f_pc = writeback_output->valm;
@@ -540,10 +540,10 @@ void do_fetch_stage()
 
     switch(instr) {
         case HPACK(I_NOP, F_NONE):
-            f_pc += 1;
+            decode_input->valp = f_pc + 1;
             break;
         case HPACK(I_HALT, F_NONE):
-            f_pc += 1;
+            decode_input->valp = f_pc + 1;
             break;
         case HPACK(I_RRMOVQ, F_NONE):
         case HPACK(I_RRMOVQ, C_LE):
@@ -555,14 +555,14 @@ void do_fetch_stage()
             imem_error |= !get_byte_val(mem, f_pc + 1, &tempB);
             decode_input->ra = HI4(tempB);
             decode_input->rb = LO4(tempB);
-            f_pc += 2;
+            decode_input->valp = f_pc + 2;
             break;
 
         case HPACK(I_IRMOVQ, F_NONE):
             imem_error |= !get_byte_val(mem, f_pc + 1, &tempB);
             decode_input->rb = LO4(tempB);
             get_word_val(mem, f_pc + 2, &decode_input->valc);
-            f_pc += 10;
+            decode_input->valp = f_pc + 10;
             break;
 
         case HPACK(I_RMMOVQ, F_NONE):
@@ -570,7 +570,7 @@ void do_fetch_stage()
             decode_input->ra = HI4(tempB);
             decode_input->rb = LO4(tempB);
             get_word_val(mem, f_pc + 2, &decode_input->valc);
-            f_pc += 10;
+            decode_input->valp = f_pc + 10;
             break;
 
         case HPACK(I_MRMOVQ, F_NONE):
@@ -578,7 +578,7 @@ void do_fetch_stage()
             decode_input->ra = HI4(tempB);
             decode_input->rb = LO4(tempB);
             get_word_val(mem, f_pc + 2, &decode_input->valc);
-            f_pc += 10;
+            decode_input->valp = f_pc + 10;
             break;
 
         case HPACK(I_ALU, A_ADD):
@@ -588,7 +588,7 @@ void do_fetch_stage()
             imem_error |= !get_byte_val(mem, f_pc + 1, &tempB);
             decode_input->ra = HI4(tempB);
             decode_input->rb = LO4(tempB);
-            f_pc += 2;
+            decode_input->valp = f_pc + 2;
             break;
 
         case HPACK(I_JMP, C_YES):
@@ -600,31 +600,31 @@ void do_fetch_stage()
         case HPACK(I_JMP, C_G):
             get_word_val(mem, f_pc + 1, &decode_input->valc);
             jmp_or_call = true;
-            f_pc += 9;
+            decode_input->valp = f_pc + 9;
             break;
 
         case HPACK(I_CALL, F_NONE):
             get_word_val(mem, f_pc + 1, &decode_input->valc);
             jmp_or_call = true;
-            f_pc += 9;
+            decode_input->valp = f_pc + 9;
             break;
 
         case HPACK(I_RET, F_NONE):
-            f_pc += 1;
+            decode_input->valp = f_pc + 1;
             break;
 
         case HPACK(I_PUSHQ, F_NONE):
             imem_error |= !get_byte_val(mem, f_pc + 1, &tempB);
             decode_input->ra = HI4(tempB);
             decode_input->rb = LO4(tempB);
-            f_pc += 2;
+            decode_input->valp = f_pc + 2;
             break;
 
         case HPACK(I_POPQ, F_NONE):
             imem_error |= !get_byte_val(mem, f_pc + 1, &tempB);
             decode_input->ra = HI4(tempB);
             decode_input->rb = LO4(tempB);
-            f_pc += 2;
+            decode_input->valp = f_pc + 2;
             break;
 
         default:
@@ -633,9 +633,9 @@ void do_fetch_stage()
             break;
     }
 
-    decode_input->valp = f_pc;
-    decode_input->stage_pc = fetch_input->predPC;
-    fetch_input->predPC = jmp_or_call ? decode_input->valc : f_pc;
+    // PC prediction/selection logic
+    fetch_input->predPC = jmp_or_call ? decode_input->valc : decode_input->valp;
+    decode_input->stage_pc = fetch_input->predPC;   
     if(imem_error){
         fetch_input->status = STAT_ADR;
     } else if(!instr_valid){
@@ -843,16 +843,16 @@ void do_execute_stage()
     }
     e_valE = compute_alu(alufun, alua, alub);
     memory_input->vale = e_valE;
-    bool setcc = execute_output->icode == I_ALU && execute_input->status != STAT_ADR && execute_input->status != STAT_INS && 
-                 execute_input->status != STAT_HLT && writeback_output->status != STAT_ADR && 
+    bool setcc = execute_output->icode == I_ALU && memory_output->status != STAT_ADR && memory_output->status != STAT_INS && 
+                 memory_output->status != STAT_HLT && writeback_output->status != STAT_ADR && 
                  writeback_output->status != STAT_INS && writeback_output->status != STAT_HLT;
     if(setcc) cc_in = compute_cc(alufun, alua, alub);
     memory_input->ifun = alufun;
 
-    e_bcond = cond_holds(cc_in, alufun);
+    e_bcond = cond_holds(cc, execute_output->ifun);
     memory_input->takebranch = e_bcond;
-
-    if((execute_output->icode == I_IRMOVQ || execute_output->icode == I_ALU) || (execute_output->icode == I_RRMOVQ && e_bcond))
+    if((execute_output->icode == I_IRMOVQ || execute_output->icode == I_ALU) || execute_output->icode == I_PUSHQ || 
+    execute_output->icode == I_POPQ || (execute_output->icode == I_RRMOVQ && e_bcond))
     {
         memory_input->deste = execute_output->deste;
     }
@@ -940,6 +940,11 @@ void do_memory_stage()
         writeback_input->valm = m_valM;
     }
 
+    if (mem_write && instr_valid) {
+        dmem_error |= !set_word_val(mem, mem_addr, mem_data);
+        sim_log("Wrote 0x%llx to address 0x%llx\n", mem_data, mem_addr);
+    }
+
     writeback_input->status = dmem_error ? STAT_ADR : memory_output->status;
 
     if (mem_read) {
@@ -1014,6 +1019,7 @@ void do_stall_check()
     bool is_load_use = (execute_output->icode == I_MRMOVQ || execute_output->icode == I_POPQ) &&
                        (execute_output->destm == execute_input->srca || execute_output->destm == execute_input->srcb);
     bool is_mispredicted = execute_output->icode == I_JMP && !e_bcond;
+
     if(is_load_use){
         // stall, stall, bubble
         fetch_state->op     = pipe_cntl("PC", true, false);

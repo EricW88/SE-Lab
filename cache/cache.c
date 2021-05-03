@@ -35,6 +35,7 @@ int dirty_eviction_count = 0;
 int clean_eviction_count = 0;
 
 /* TODO: add more globals, structs, macros if necessary */
+int count = 0;
 
 /*
  * Initialize the cache according to specified arguments
@@ -146,18 +147,15 @@ cache_line_t *get_line(cache_t *cache, uword_t addr)
 cache_line_t *select_line(cache_t *cache, uword_t addr)
 {
     /* your implementation */
-    uword_t block_addr = addr / (unsigned int) pow(2, cache->b);
-    cache_set_t *block_set = &cache->sets[block_addr % (unsigned int) pow(2, cache->s)];
-    cache_line_t *curr_line = &block_set->lines[0];
+    cache_set_t *block_set = &cache->sets[(addr / (unsigned int) pow(2, cache->b)) % (unsigned int) pow(2, cache->s)];
+    cache_line_t *lru_line = &block_set->lines[0];
+    cache_line_t *curr_line = lru_line;
     unsigned int index = 0;
 
-    uword_t lru_max = 0;
-    cache_line_t *lru_line;
-
     while(index < cache->E && curr_line->valid){
-        if(curr_line->lru >= lru_max) lru_line = curr_line;
+        if(curr_line->lru < lru_line->lru) lru_line = curr_line; 
         index++;
-        curr_line++; 
+        curr_line++;
     }
 
     if(index == cache->E){
@@ -165,7 +163,6 @@ cache_line_t *select_line(cache_t *cache, uword_t addr)
     } else {
         return curr_line;
     }
-    return NULL;
 }
 
 /* TODO:
@@ -176,25 +173,16 @@ bool check_hit(cache_t *cache, uword_t addr, operation_t operation)
 {
     /* your implementation */
     cache_line_t *line = get_line(cache, addr);
-
-    int index = 0;
-    uword_t block_addr = addr / (unsigned int) pow(2, cache->b);
-    cache_set_t *block_set = &cache->sets[block_addr % (unsigned int) pow(2, cache->s)];
-    cache_line_t *curr_line = &block_set->lines[0];
-    while(index < cache->E && curr_line->valid){
-        curr_line->lru++;
-        index++;
-        curr_line++; 
-    }
-
     if(line == NULL){
         miss_count++;
         return false;
     } else {
         hit_count++;
-        if(operation == WRITE) line->dirty = true;
+        if(operation == WRITE){
+            line->dirty = true;
+        }
         // line is now the most recently used line
-        line->lru = 0;
+        line->lru = count++;
         return true;
     }
 }
@@ -208,6 +196,7 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
     size_t B = (size_t)pow(2, cache->b);
     evicted_line_t *evicted_line = malloc(sizeof(evicted_line_t));
     evicted_line->data = (byte_t *) calloc(B, sizeof(byte_t));
+
     cache_line_t *inserted_line = select_line(cache, addr);
     evicted_line->valid = inserted_line->valid;
     evicted_line->dirty = inserted_line->dirty;
@@ -220,12 +209,16 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
         } else {
             clean_eviction_count++;
         }
-    } else {
-        inserted_line->valid = true;
     }
+
+    inserted_line->valid = true;
     inserted_line->tag = addr / (unsigned int) pow(2, cache->s + cache->b);
-    if(operation == WRITE) inserted_line->dirty = false;
-    inserted_line->lru = 0;
+    if(operation == WRITE) {
+       inserted_line->dirty = true;
+    } else {
+        inserted_line->dirty = false;
+    }
+    inserted_line->lru = count++;
     inserted_line->data = incoming_data;
     return evicted_line;
 }
