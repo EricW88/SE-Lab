@@ -1,0 +1,70 @@
+                            | # Design your own testcase here
+0x000:                      | .pos 0
+0x000: 30f40002000000000000 | irmovq stack, %rsp
+0x00a: 807800000000000000   | call main
+0x013: 00                   | halt
+                            | 
+                            | #Array used for memory operations
+0x018:                      |     .align 8
+0x018: 6050400302010000     | array:  .quad 0x010203405060
+0x020: f0e0d0c0b0a00000     |     .quad 0xa0b0c0d0e0f0
+0x028: 5853265941310000     |     .quad 0x314159265358
+0x030: 0010325476980000     |     .quad 0x987654321000
+0x038: 6824571368240000     |     .quad 0x246813572468
+0x040: 0000000000000000     |     .quad 0x000000000000
+0x048: 2491785634120000     |     .quad 0x123456789124
+0x050: 3186344516120000     |     .quad 0x121645348631
+0x058: 4686544346120000     |     .quad 0x124643548646
+0x060: 4564756415120000     |     .quad 0x121564756445
+0x068: 7578454554540000     |     .quad 0x545445457875
+0x070: 5969366578560000     |     .quad 0x567865366959
+                            | 
+0x078:                      | main:
+0x078: 30f70200000000000000 |     irmovq $2, %rdi
+0x082: 30f60004000000000000 |     irmovq $1024, %rsi
+0x08c: 30f20000000000000000 |     irmovq $0, %rdx
+0x096: 30f11800000000000000 |     irmovq array, %rcx
+0x0a0: 80aa00000000000000   |     call test_batch1
+0x0a9: 90                   |     ret
+                            | 
+                            | #Recursive function that performs multiple ALU operations on data consecutively to test forwarding capabilities,
+                            | #has a jump that is continously mispredicted as well as a load/use hazard near a return statement to test for load/use-return combinations
+0x0aa:                      | test_batch1:
+0x0aa: a05f                 |     pushq %rbp
+0x0ac: 2065                 |     rrmovq %rsi, %rbp
+0x0ae: 6175                 |     subq %rdi, %rbp        # Set CC codes
+0x0b0: 721901000000000000   |     jl return_pt2          # This will mispredict until the condition are satsified such that the recursion stops. End recursion once %rdi is bigger %rbp which store %rsi 
+0x0b9: a03f                 |     pushq %rbx
+0x0bb: a0cf                 |     pushq %r12
+0x0bd: 2073                 |     rrmovq %rdi, %rbx      #Save %rax and %rdi
+0x0bf: 200c                 |     rrmovq %rax, %r12
+0x0c1: 30f00000000000000000 |     irmovq $0, %rax
+0x0cb: 30fa0500000000000000 |     irmovq $5, %r10
+0x0d5: 6077                 |     addq %rdi, %rdi        # Multiple back to back forwarding operations to test cache and pipe   
+0x0d7: 6077                 |     addq %rdi, %rdi
+0x0d9: 6077                 |     addq %rdi, %rdi
+0x0db: 6137                 |     subq %rbx, %rdi        # %rdi is now 2 times greater than its original valeu
+0x0dd: 6070                 |     addq %rdi, %rax        # These next ALU operations have no other function than for more forwarding tests
+0x0df: 62a0                 |     andq %r10, %rax
+0x0e1: 6300                 |     xorq %rax, %rax
+0x0e3: 20c0                 |     rrmovq %r12, %rax      #Restore %rax after ALU operations                             
+0x0e5: 30fa0800000000000000 |     irmovq 8, %r10
+0x0ef: 6021                 |     addq %rdx, %rcx       
+0x0f1: 50310000000000000000 |     mrmovq (%rcx), %rbx    #Another Load/use
+0x0fb: 6030                 |     addq %rbx, %rax        #Add the array element to %rax
+0x0fd: 60a2                 |     addq %r10, %rdx
+0x0ff: 200c                 |     rrmovq %rax, %r12      #Store %rax
+0x101: 80aa00000000000000   |     call test_batch1
+0x10a: 60c0                 |     addq %r12, %rax        #Make the return value the sum of the caller and callee %rax
+0x10c: 701501000000000000   |     jmp return_pt1
+0x115:                      | return_pt1:
+0x115: b03f                 |     popq %rbx
+0x117: b0cf                 |     popq  %r12
+0x119:                      | return_pt2:
+0x119: b05f                 |     popq %rbp             #Artificially create load/use hazard right before return
+0x11b: 6255                 |     andq %rbp, %rbp
+0x11d: 90                   |     ret
+                            |     
+                            | # This is the beginning of the stack
+0x200:                      |     .pos 0x200
+0x200:                      | stack:

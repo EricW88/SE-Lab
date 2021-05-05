@@ -1,0 +1,59 @@
+                            | # compare: get the difference between two arrays
+                            | # Execution begins at address 0 
+0x000:                      | 	.pos 0 
+0x000: 30f40002000000000000 | 	irmovq stack, %rsp  	# Set up stack pointer  
+0x00a: 809800000000000000   | 	call main		# Execute main program
+0x013: 00                   | 	halt			# Terminate program 
+                            | 
+                            | #Arrays of 8 elements
+0x018:                      |     .align 8
+0x018:                      | array1:
+0x018: 0100000000000000     |     .quad 0x00000001
+0x020: 0200000000000000     |     .quad 0x00000002
+0x028: 0300000000000000     |     .quad 0x00000003
+0x030: 0400000000000000     |     .quad 0x00000004
+0x038: 0500000000000000     |     .quad 0x00000005
+0x040: 0600000000000000     |     .quad 0x00000006
+0x048: 0700000000000000     |     .quad 0x00000007
+0x050: 0800000000000000     |     .quad 0x00000008
+0x058:                      | array2:
+0x058: 0800000000000000     |     .quad 0x00000008
+0x060: 0700000000000000     |     .quad 0x00000007
+0x068: 0600000000000000     |     .quad 0x00000006
+0x070: 0500000000000000     |     .quad 0x00000005
+0x078: 0400000000000000     |     .quad 0x00000004
+0x080: 0300000000000000     |     .quad 0x00000003
+0x088: 0200000000000000     |     .quad 0x00000002
+0x090: 0100000000000000     |     .quad 0x00000001
+                            | 
+0x098: 30f71800000000000000 | main:	irmovq array1,%rdi	
+0x0a2: 30f65800000000000000 | 	irmovq array2,%rsi
+0x0ac: 30f20800000000000000 |     irmovq $8, %rdx
+0x0b6: 80c000000000000000   | 	call compare		# compare(array1, array2, count)
+0x0bf: 90                   | 	ret 
+                            | 
+                            | /* $begin compare-ys */
+                            | # long compare(long *array1, long *array2, long count)
+                            | # array1 in %rdi, array2 in %rsi, count in %rdx
+0x0c0:                      | compare:
+0x0c0: 30f80800000000000000 |     irmovq $8, %r8      # Constant 8
+0x0ca: 30f90100000000000000 |     irmovq $1,%r9	    # Constant 1
+0x0d4: 6300                 |     xorq %rax, %rax     # sum = 0
+0x0d6: 6222                 |     andq %rdx,%rdx		# Set condition codes
+0x0d8: 70ff00000000000000   | 	jmp  test
+0x0e1:                      | loop:
+0x0e1: 50a70000000000000000 |     mrmovq (%rdi),%r10	# x = *array1
+0x0eb: 50b70000000000000000 |     mrmovq (%rdi),%r11	# y = *array2
+0x0f5: 61ba                 |     subq %r11, %r10     # x-y
+0x0f7: 60a0                 |     addq %r10, %rax     # Add to sum
+0x0f9: 6087                 |     addq %r8, %rdi      # array1++
+0x0fb: 6086                 |     addq %r8, %rsi      # array2++
+0x0fd: 6192                 |     subq %r9, %rdx      # count--
+0x0ff:                      | test:
+0x0ff: 74e100000000000000   |     jne loop            # stop when 0
+0x108: 90                   |     ret
+                            | /* $end compare-ys */
+                            | 
+                            | # The stack starts here and grows to lower addresses
+0x200:                      | 	.pos 0x200		
+0x200:                      | stack:

@@ -1,0 +1,113 @@
+                            |     # Preamble.  Initialize memory and registers
+0x000: 30f0f500000000000000 |     irmovq $0xf5,%rax
+0x00a: 30f50000000000000000 |     irmovq $0,%rbp
+0x014: 4005e000000000000000 |     rmmovq %rax,0xe0(%rbp)
+0x01e: 30f0f700000000000000 |     irmovq $0xf7,%rax
+0x028: 4005e800000000000000 |     rmmovq %rax,0xe8(%rbp)
+0x032: 30f0fb00000000000000 |     irmovq $0xfb,%rax
+0x03c: 4005f000000000000000 |     rmmovq %rax,0xf0(%rbp)
+0x046: 30f0ff00000000000000 |     irmovq $0xff,%rax
+0x050: 4005f800000000000000 |     rmmovq %rax,0xf8(%rbp)
+0x05a: 30f50001000000000000 |     irmovq $0x100,%rbp
+0x064: 30f40c01000000000000 |     irmovq $0x10c,%rsp
+0x06e: 6300                 |     xorq %rax,%rax      # Set Z condition code
+0x070: 30f00001000000000000 |     irmovq $0x100,%rax
+                            |     # Test 4 instruction sequence
+0x07a: b05f                 |     popq   %rbp
+0x07c: 10                   |     nop
+0x07d: 10                   |     nop
+0x07e: 40550400000000000000 |     rmmovq %rbp,4(%rbp)
+                            |     # Put in another instruction
+0x088: 2045                 |     rrmovq %rsp,%rbp
+                            |     # Complete
+0x08a: 00                   |     halt
+                            | 
+0x100:                      | .pos 0x100
+0x100: 3001000000000000     |      .quad pos01
+0x108: 3101000000000000     |      .quad pos02
+0x110: 3201000000000000     |      .quad pos03
+0x118: 3301000000000000     |      .quad pos04
+0x120: 3401000000000000     |      .quad pos05
+0x128: 3501000000000000     |      .quad pos06
+0x130:                      | pos01:
+0x130: 00                   |      halt
+0x131:                      | pos02:
+0x131: 00                   |      halt
+0x132:                      | pos03:
+0x132: 00                   |      halt
+0x133:                      | pos04:
+0x133: 00                   |      halt
+0x134:                      | pos05:
+0x134: 00                   |      halt
+0x135:                      | pos06:
+0x135: 00                   |      halt
+0x136: 00                   |      halt
+0x137: 00                   |      halt
+0x138: 00                   |      halt
+0x139: 00                   |      halt
+0x13a: 00                   |      halt
+0x13b: 00                   |      halt
+0x13c: 00                   |      halt
+0x13d: 00                   |      halt
+0x13e: 00                   |      halt
+0x13f: 00                   |      halt
+0x140: 00                   |      halt
+0x141: 00                   |      halt
+0x142: 00                   |      halt
+0x143: 00                   |      halt
+                            | 
+0x180:                      | .pos 0x180
+0x180: b001000000000000     |     .quad pos11
+0x188: b101000000000000     |     .quad pos12
+0x190: b201000000000000     |     .quad pos13
+0x198: b301000000000000     |     .quad pos14
+0x1a0: b401000000000000     |     .quad pos15
+0x1a8: b501000000000000     |     .quad pos16
+0x1b0:                      | pos11:
+0x1b0: 00                   |     halt
+0x1b1:                      | pos12:
+0x1b1: 00                   |     halt
+0x1b2:                      | pos13:
+0x1b2: 00                   |     halt
+0x1b3:                      | pos14:
+0x1b3: 00                   |     halt
+0x1b4:                      | pos15:
+0x1b4: 00                   |     halt
+0x1b5:                      | pos16:
+0x1b5: 00                   |     halt
+0x1b6: 00                   |     halt
+0x1b7: 00                   |     halt
+0x1b8: 00                   |     halt
+0x1b9: 00                   |     halt
+0x1ba: 00                   |     halt
+0x1bb: 00                   |     halt
+0x1bc: 00                   |     halt
+0x1bd: 00                   |     halt
+                            | 
+0x200:                      | .pos 0x200
+0x200: 3002000000000000     |     .quad pos21
+0x208: 3102000000000000     |     .quad pos22
+0x210: 3202000000000000     |     .quad pos23
+0x218: 3302000000000000     |     .quad pos24
+0x220: 3402000000000000     |     .quad pos25
+0x228: 3502000000000000     |     .quad pos26
+0x230:                      | pos21:
+0x230: 00                   |     halt
+0x231:                      | pos22:
+0x231: 00                   |     halt
+0x232:                      | pos23:
+0x232: 00                   |     halt
+0x233:                      | pos24:
+0x233: 00                   |     halt
+0x234:                      | pos25:
+0x234: 00                   |     halt
+0x235:                      | pos26:
+0x235: 00                   |     halt
+0x236: 00                   |     halt
+0x237: 00                   |     halt
+0x238: 00                   |     halt
+0x239: 00                   |     halt
+0x23a: 00                   |     halt
+0x23b: 00                   |     halt
+0x23c: 00                   |     halt
+0x23d: 00                   |     halt

@@ -1,0 +1,65 @@
+                            | # myprog: search 2d array, colume major
+0x000:                      | 	.pos 0
+0x000: 30f40004000000000000 | 	irmovq stack, %rsp  	# Set up stack pointer
+0x00a: 809800000000000000   | 	call main		# Execute main program
+0x013: 00                   | 	halt			# Terminate program 
+                            | 
+                            | # 4x4 matrix
+0x018:                      | 	.align 8
+0x018: 8a00000000000000     | array:	.quad 0x8a
+0x020: 5500000000000000     | 	.quad 0x55
+0x028: 0c00000000000000     | 	.quad 0x0c
+0x030: e300000000000000     |     .quad 0xe3
+0x038: e200000000000000     |     .quad 0xe2
+0x040: 7d00000000000000     | 	.quad 0x7d
+0x048: 2500000000000000     |     .quad 0x25
+0x050: f500000000000000     |     .quad 0xf5
+0x058: f400000000000000     |     .quad 0xf4
+0x060: 3400000000000000     | 	.quad 0x34
+0x068: e900000000000000     | 	.quad 0xe9
+0x070: 7b00000000000000     |     .quad 0x7b
+0x078: f600000000000000     |     .quad 0xf6
+0x080: d300000000000000     | 	.quad 0xd3
+0x088: 1200000000000000     |     .quad 0x12
+0x090: 6500000000000000     |     .quad 0x65
+                            | 
+0x098:                      | main:
+0x098: 30f71800000000000000 |     irmovq array,%rdi
+0x0a2: 30f60400000000000000 | 	irmovq $4,%rsi
+0x0ac: 80b600000000000000   | 	call searchMin		# searchMin(array, 4)
+0x0b5: 90                   | 	ret
+                            | 
+                            | # long searchMin(long *start, long dim)
+                            | # start in %rdi, dim in %rsi
+0x0b6:                      | searchMin:
+0x0b6: 30f80100000000000000 |     irmovq $1,%r8       # Constant 1
+0x0c0: 30f90800000000000000 | 	irmovq $8,%r9       # Constant 8
+0x0ca: 30fa2000000000000000 | 	irmovq $32,%r10     # Constant 32
+0x0d4: 30fb8000000000000000 |     irmovq $128,%r11    # Constant 128
+0x0de: 50070000000000000000 |     mrmovq (%rdi),%rax  # min = *start
+0x0e8: 206c                 |     rrmovq %rsi,%r12    # numCol = dim
+0x0ea: 62cc                 |     andq %r12,%r12	    # Set CC
+0x0ec: 702d01000000000000   |     jmp     test1       # goto test1
+0x0f5:                      | loop1:
+0x0f5: 206d                 |     rrmovq %rsi,%r13    # numRow = dim
+0x0f7: 62dd                 |     andq %r13,%r13	    # Set CC
+0x0f9: 701e01000000000000   |     jmp     test2       # goto test2
+0x102:                      | loop2:
+0x102: 50e70000000000000000 |     mrmovq (%rdi),%r14  # get current element
+0x10c: 610e                 |     subq %rax,%r14      # compare to min, set CC
+0x10e: 50e70000000000000000 |     mrmovq (%rdi),%r14  #
+0x118: 22e0                 |     cmovl %r14,%rax     # if ele < min, min = ele
+0x11a: 60a7                 |     addq %r10,%rdi      # next row
+0x11c: 618c                 | 	subq %r8,%r12       # numRow--, set CC
+0x11e:                      | test2:
+0x11e: 740201000000000000   |     jne loop2           # Stop when 0
+0x127: 61b7                 |     subq %r11,%rdi      #
+0x129: 6097                 |     addq %r9,%rdi       # next col
+0x12b: 61ac                 | 	subq %r10,%r12      # numcol--, set CC
+0x12d:                      | test1:
+0x12d: 74f500000000000000   |     jne loop1           # Stop when 0
+0x136: 90                   |     ret                 # return
+                            | 
+                            | # The stack starts here and grows to lower addresses
+0x400:                      | 	.pos 0x400		
+0x400:                      | stack:	 
