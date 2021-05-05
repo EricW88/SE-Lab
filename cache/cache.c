@@ -233,7 +233,6 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
             inserted_line->data[i] = incoming_data[i];
         }        
     }
-    check_hit(cache, addr, operation);
     return evicted_line;
 }
 
