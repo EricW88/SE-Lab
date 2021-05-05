@@ -773,7 +773,6 @@ void do_decode_stage()
  *******************************************************************/
 void do_execute_stage()
 {
-    /* dummy placeholders, replace them with your implementation */
     cc_in = DEFAULT_CC; /* should not overwrite original cc */
     /* some useful variables for logging purpose */
     alu_t alufun = A_ADD;
@@ -935,19 +934,10 @@ void do_memory_stage()
             printf("icode is not valid (%d)", memory_output->icode);
             break;
     }
-    if(mem_read){
-        dmem_error |= !get_word_val(mem, mem_addr, &m_valM);
-        writeback_input->valm = m_valM;
-    }
-
-    if (mem_write && instr_valid) {
-        dmem_error |= !set_word_val(mem, mem_addr, mem_data);
-        sim_log("Wrote 0x%llx to address 0x%llx\n", mem_data, mem_addr);
-    }
-
-    writeback_input->status = dmem_error ? STAT_ADR : memory_output->status;
 
     if (mem_read) {
+        dmem_error |= !get_word_val(mem, mem_addr, &m_valM);
+        writeback_input->valm = m_valM;
         if ((dmem_error |= !get_word_val(mem, mem_addr, &mem_data))) {
             sim_log("\tMemory: Couldn't Read from 0x%llx\n", mem_addr);
         } else {
@@ -963,6 +953,8 @@ void do_memory_stage()
             sim_log("\tMemory: Wrote 0x%llx to address 0x%llx\n", mem_data, mem_addr);
         }
     }
+
+    writeback_input->status = dmem_error ? STAT_ADR : memory_output->status;
 }
 
 /******************** Writeback stage *********************

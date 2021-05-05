@@ -18,6 +18,7 @@
 #include "cache.h"
 
 #define ADDRESS_LENGTH 64
+#define BYTES_IN_WORD 8
 
 /* Counters used to record cache statistics in printSummary().
    test-cache uses these numbers to verify correctness of the cache. */
@@ -187,10 +188,10 @@ bool check_hit(cache_t *cache, uword_t addr, operation_t operation)
     }
 }
 
-/* TODO:
- * Handles Misses, evicting from the cache if necessary.
- * Fill out the evicted_line_t struct with info regarding the evicted line.
- */
+// /* TODO:
+//  * Handles Misses, evicting from the cache if necessary.
+//  * Fill out the evicted_line_t struct with info regarding the evicted line.
+//  */
 evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation, byte_t *incoming_data)
 {
     size_t B = (size_t)pow(2, cache->b);
@@ -198,12 +199,19 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
     evicted_line->data = (byte_t *) calloc(B, sizeof(byte_t));
 
     cache_line_t *inserted_line = select_line(cache, addr);
-    evicted_line->valid = inserted_line->valid;
-    evicted_line->dirty = inserted_line->dirty;
-    evicted_line->addr = addr;
-    evicted_line->data = inserted_line->data;
+    evicted_line->valid = false;
+    evicted_line->dirty = false;
+        
+    evicted_line->addr = ((inserted_line->tag << ((cache->b + cache->s))) | 
+    ((unsigned int) (addr / pow(2, cache->b)) % (unsigned int) pow(2, cache->s) << cache->b));
+
+    for(int i = 0; i < B; i++){
+        evicted_line->data[i] = inserted_line->data[i];
+    }
 
     if(inserted_line->valid){
+        evicted_line->valid = inserted_line->valid;
+        evicted_line->dirty = inserted_line->dirty;
         if(inserted_line->dirty) {
             dirty_eviction_count++;
         } else {
@@ -219,48 +227,67 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
         inserted_line->dirty = false;
     }
     inserted_line->lru = count++;
-    inserted_line->data = incoming_data;
+    long offset = (addr & ((int)pow(2, cache->b) - 1));
+    if(incoming_data != NULL){
+        for(int i = 0; i < B - offset; i++){
+            inserted_line->data[i] = incoming_data[i];
+        }        
+    }
+    check_hit(cache, addr, operation);
     return evicted_line;
 }
 
-/* TODO:
- * Get a byte from the cache and write it to dest.
- * Preconditon: pos is contained within the cache.
- */
-void get_byte_cache(cache_t *cache, uword_t addr, byte_t *dest)
-{
-    /* your implementation */
+// /* TODO:
+//  * Get a byte from the cache and write it to dest.
+//  * Preconditon: pos is contained within the cache.
+//  */
+void get_byte_cache(cache_t *cache, uword_t addr, byte_t *dest) {
+    cache_line_t *line = get_line(cache, addr);
+    uword_t addr_offset = addr % (unsigned int) pow(2, cache->b);
+    *dest = line->data[addr_offset];
 }
 
 
-/* TODO:
- * Get 8 bytes from the cache and write it to dest.
- * Preconditon: pos is contained within the cache.
- */
+// /* TODO:
+//  * Get 8 bytes from the cache and write it to dest.
+//  * Preconditon: pos is contained within the cache.
+//  */
 void get_word_cache(cache_t *cache, uword_t addr, word_t *dest) {
+    cache_line_t *line = get_line(cache, addr);
+    uword_t addr_offset = addr % (unsigned int) pow(2, cache->b);
 
-    /* your implementation */
+    word_t val= 0;
+    for (int i = 0; i < 8; i++) {
+        word_t b =  line->data[addr_offset + i] & 0xFF;
+        val = val | (b <<(8*i));
+    }
+    *dest = val;
 }
 
 
-/* TODO:
- * Set 1 byte in the cache to val at pos.
- * Preconditon: pos is contained within the cache.
- */
+// /* TODO:
+//  * Set 1 byte in the cache to val at pos.
+//  * Preconditon: pos is contained within the cache.
+//  */
 void set_byte_cache(cache_t *cache, uword_t addr, byte_t val)
 {
-
-    /* your implementation */
+    cache_line_t *line = select_line(cache, addr);
+    uword_t addr_offset = addr % (unsigned int) pow(2, cache->b);
+    line->data[addr_offset] = val;
 }
 
-
-/* TODO:
- * Set 8 bytes in the cache to val at pos.
- * Preconditon: pos is contained within the cache.
- */
+// /* TODO:
+//  * Set 8 bytes in the cache to val at pos.
+//  * Preconditon: pos is contained within the cache.
+//  */
 void set_word_cache(cache_t *cache, uword_t addr, word_t val)
 {
-    /* your implementation */
+    cache_line_t *line = get_line(cache, addr);
+    uword_t addr_offset = addr % (unsigned int) pow(2, cache->b);
+    for (int i = 0; i < 8; i++) {
+	    line->data[addr_offset + i] = (byte_t) val;
+	    val >>= 8;
+    }
 }
 
 /*
